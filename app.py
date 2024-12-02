@@ -31,7 +31,8 @@ if 'profile' not in st.session_state:
     st.session_state['profile'] = {}
 if 'choice' not in st.session_state:
     st.session_state['choice'] = 'Login'
-
+if 'account_type' not in st.session_state:
+    st.session_state['account_type'] = ''
 
 def reload_uploaded_videos():
     global uploaded_videos
@@ -47,7 +48,7 @@ st.markdown(
     """
     <style>
     .stApp {
-        background: url('https://img.freepik.com/free-vector/gradient-style-football-field-background_23-2148995842.jpg?t=st=1732464663~exp=1732468263~hmac=f2ad5af2bd41a1836680d755cea1b149c6c9aeab131c69559e23cc7b3e2fd01d&w=1480') no-repeat center center fixed;
+        background: url('https://i.imgur.com/cBjQ0mv.png') no-repeat center center fixed;
         background-size: cover;
         height: 100vh;
         font-family: 'Arial', sans-serif;
@@ -88,15 +89,52 @@ st.markdown(
         margin: 0 auto 20px auto;
         width: 100px;
     }
+    /* Custom CSS for sidebar hover effect */
+    .sidebar {
+        position: fixed;
+        left: -250px;
+        top: 0;
+        height: 100%;
+        width: 250px;
+        background-color: #111;
+        transition: 0.3s;
+        z-index: 1000;
+    }
+    .sidebar:hover {
+        left: 0;
+    }
+    .sidebar-content {
+        padding: 20px;
+    }
+    .main-content {
+        margin-left: 0;
+        transition: margin-left 0.3s;
+    }
+    .sidebar:hover + .main-content {
+        margin-left: 250px;
+    }
     </style>
     <img src="https://i.imgur.com/TlGCEkL.png" class="logo">
     """, unsafe_allow_html=True
 )
 
-# Sidebar menu with icons (Login and Register at the top)
-menu = ["Login", "Register", "Home", "Profile", "Upload Video", "Chat", "Logout"]
-icons = ["🔑", "📝", "🏠", "👤", "📹", "💬", "🚪"]
-choice = st.sidebar.selectbox("Select a page", menu, format_func=lambda x: f"{icons[menu.index(x)]} {x}", index=menu.index(st.session_state['choice']))
+# Sidebar menu with icons (conditionally include Login and Register)
+if st.session_state['logged_in']:
+    if st.session_state['account_type'] == "Trainer":
+        menu = ["Home", "Profile", "Upload Video", "Chat", "Feed", "Logout"]
+        icons = ["🏠", "👤", "📹", "💬", "📺", "🚪"]
+    else:
+        menu = ["Home", "Profile", "Upload Video", "Chat", "Logout"]
+        icons = ["🏠", "👤", "📹", "💬", "🚪"]
+else:
+    menu = ["Login", "Register", "Home", "Profile", "Upload Video", "Chat", "Logout"]
+    icons = ["🔑", "📝", "🏠", "👤", "📹", "💬", "🚪"]
+
+# choice = st.sidebar.selectbox("Select a page", menu, format_func=lambda x: f"{icons[menu.index(x)]} {x}", index=menu.index(st.session_state['choice']))
+st.markdown('<div class="sidebar"><div class="sidebar-content">', unsafe_allow_html=True)
+choice = st.selectbox("Select a page", menu, format_func=lambda x: f"{icons[menu.index(x)]} {x}", index=menu.index(st.session_state['choice']))
+st.markdown('</div></div>', unsafe_allow_html=True)
+
 
 # Update session state with the current choice
 st.session_state['choice'] = choice
@@ -123,16 +161,16 @@ elif choice == "Home":
     if not st.session_state['logged_in']:
         st.warning("You must be logged in to view this page.")
     else:
-        st.title("Scoutify")
-        st.write("Welcome to Scoutify! This platform connects rural athletes in India with scouts, coaches, and academics.")
+        # st.title("Scoutify")
+        st.subheader("**Welcome to Scoutify!**\n**This platform connects rural athletes in India with scouts, coaches, and academics.**")
         
         # Display uploaded videos for logged-in users
         reload_uploaded_videos()
         username = st.session_state['username']
         if uploaded_videos:
-            st.write("Your uploaded videos:")
+            st.write("**Your uploaded videos:**")
             for index, video in enumerate(uploaded_videos):
-                st.write(f"Video {index + 1}: {video['name']}")
+                st.write(f"**Video {index + 1}: {video['name']}**")
                 st.video(video['link'])
                 
                 # Display a small "Delete" button for each video
@@ -152,7 +190,7 @@ elif choice == "Home":
                     st.rerun()
                     
         else:
-            st.write("You have not uploaded any videos yet.")
+            st.write("**You have not uploaded any videos yet.**")
 
 # Profile page
 elif choice == "Profile":
@@ -221,23 +259,26 @@ elif choice == "Profile":
 
 # Register page
 elif choice == "Register":
-    st.title("Register")
-    with st.form("register_form"):
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        password_confirm = st.text_input("Confirm Password", type="password")
-        account_type = st.selectbox("Account Type", ["User", "Trainer"])
-        if st.form_submit_button("Register"):
-            if users_collection.find_one({"username": username}):
-                st.warning("Username already exists!")
-            elif password != password_confirm:
-                st.warning("Passwords do not match!")
-            else:
-                hashed_password = hashlib.sha256(password.encode()).hexdigest()
-                users_collection.insert_one({'username': username, 'password': hashed_password, 'profile': {}, 'account_type': account_type})
-                st.success(f"Account created for {username}!")
-                change_choice('Login')  # Redirect to Login page after registration
-                st.rerun()  # Trigger a page refresh
+    if st.session_state['logged_in']:
+        st.warning("You are already registered and logged in.")
+    else:
+        st.title("Register")
+        with st.form("register_form"):
+            username = st.text_input("Username")
+            password = st.text_input("Password", type="password")
+            password_confirm = st.text_input("Confirm Password", type="password")
+            account_type = st.selectbox("Account Type", ["User", "Trainer"])
+            if st.form_submit_button("Register"):
+                if users_collection.find_one({"username": username}):
+                    st.warning("Username already exists!")
+                elif password != password_confirm:
+                    st.warning("Passwords do not match!")
+                else:
+                    hashed_password = hashlib.sha256(password.encode()).hexdigest()
+                    users_collection.insert_one({'username': username, 'password': hashed_password, 'profile': {}, 'account_type': account_type})
+                    st.success(f"Account created for {username}!")
+                    change_choice('Login')  # Redirect to Login page after registration
+                    st.rerun()  # Trigger a page refresh
 
 # Login page
 elif choice == "Login":
@@ -290,10 +331,10 @@ elif choice == "Chat":
             ]}).sort("timestamp")
 
             for message in chat_messages:
-                st.write(f"{message['sender']}: {message['message']}")
+                st.write(f"**{message['sender']}**: {message['message']}")
 
             # Send a new message
-            new_message = st.text_input("Type your message")
+            new_message = st.text_input("Type your message", placeholder="Enter your message here. Markdown is enabled.")
             if st.button("Send"):
                 chats_collection.insert_one({
                     "sender": st.session_state['username'],
@@ -337,3 +378,26 @@ elif choice == "Upload Video":
                 progress_bar.progress((i + 1) / total_files)
 
             st.success("Videos uploaded successfully!")
+
+# Feed page (for trainers)
+elif choice == "Feed":
+    if not st.session_state['logged_in'] or st.session_state['account_type'] != "Trainer":
+        st.warning("You must be logged in as a trainer to view this page.")
+    else:
+        st.title("Feed")
+        st.write("All users' uploaded videos:")
+
+        # Fetch all users' uploaded videos
+        all_videos = users_collection.aggregate([
+            {"$match": {"profile.uploaded_videos": {"$exists": True}}},
+            {"$project": {"username": 1, "profile.uploaded_videos": 1}}
+        ])
+
+        for user in all_videos:
+            username = user['username']
+            uploaded_videos = user['profile']['uploaded_videos']
+            if uploaded_videos:
+                st.write(f"Videos uploaded by {username}:")
+                for index, video in enumerate(uploaded_videos):
+                    st.write(f"Video {index + 1}: {video['name']}")
+                    st.video(video['link'])
